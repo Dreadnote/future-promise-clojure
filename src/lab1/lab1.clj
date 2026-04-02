@@ -1,59 +1,68 @@
 (ns lab1.lab1
   (:gen-class))
 
-;; Функция для вычисления суммы всех элементов списка
 (defn sum-list [numbers]
-  (println "Начинаю вычисление суммы...")
+  (println "  Сумма: начали вычисление...")
   (let [result (apply + numbers)]
-    (println "Сумма вычислена:" result)
+    (println "  Сумма: готово =" result)
     result))
 
-;; Функция для вычисления произведения всех элементов списка
 (defn product-list [numbers]
-  (println "Начинаю вычисление произведения...")
+  (println "  Произведение: начали вычисление...")
   (let [result (apply * numbers)]
-    (println "Произведение вычислено:" result)
+    (println "  Произведение: готово =" result)
     result))
 
-(defn -main
-  "Главная функция: запускает параллельные вычисления с future и promise"
-  [& args]
-  ;; Исходный список чисел (можешь изменить на свой)
-  (def numbers [1 2 3 4 5])
+(defn sequential-compute [numbers]
+  (println "Последовательное выполнение (без future):")
+  (let [start (System/currentTimeMillis)
+        sum (sum-list numbers)
+        product (product-list numbers)
+        end (System/currentTimeMillis)]
+    (println "---")
+    (println "Результаты:")
+    (println "  Сумма =" sum)
+    (println "  Произведение =" product)
+    (println "Время выполнения:" (- end start) "мс")
+    (- end start)))
 
-  (println "Исходный список:" numbers)
-  (println "---")
-
-  ;; Создаём promise для синхронизации результатов
-  (def sum-promise (promise))
-  (def product-promise (promise))
-
-  ;; Запускаем вычисления в параллельных потоках (future)
-  (def sum-future
+(defn parallel-compute [numbers]
+  (println "Параллельное выполнение (с future и promise):")
+  (let [start (System/currentTimeMillis)
+        sum-promise (promise)
+        product-promise (promise)]
     (future
       (let [result (sum-list numbers)]
         (deliver sum-promise result)
-        result)))
-
-  (def product-future
+        result))
     (future
       (let [result (product-list numbers)]
         (deliver product-promise result)
-        result)))
+        result))
+    (let [sum @sum-promise
+          product @product-promise
+          end (System/currentTimeMillis)]
+      (println "---")
+      (println "Результаты:")
+      (println "  Сумма =" sum)
+      (println "  Произведение =" product)
+      (println "Время выполнения:" (- end start) "мс")
+      (- end start))))
 
-  ;; Ждём завершения ОБОИХ вычислений с помощью promise
-  (println "Ожидаем завершения вычислений...")
+(defn -main [& args]
+  (let [numbers [1 2 3 4 5]]
+    (println "Список чисел:" numbers)
+    (println "========================")
 
-  ;; Блокируемся до тех пор, пока оба promise не будут доставлены
-  (let [sum-result @sum-promise
-        product-result @product-promise]
+    (def sequential-time (sequential-compute numbers))
+    (println "========================")
 
-    ;; Выводим финальный результат
-    (println "---")
-    (println "✅ Оба вычисления завершены!")
-    (println "Сумма элементов списка:" sum-result)
-    (println "Произведение элементов списка:" product-result)
-    (println "---")
-    (println "Итоговый отчёт:")
-    (println (str "  Сумма: " sum-result))
-    (println (str "  Произведение: " product-result))))
+    (def parallel-time (parallel-compute numbers))
+    (println "========================")
+
+    (println "СРАВНЕНИЕ:")
+    (println "  Последовательное время:" sequential-time "мс")
+    (println "  Параллельное время:" parallel-time "мс")
+    (println "  Выигрыш:" (- sequential-time parallel-time) "мс")
+
+    (shutdown-agents)))
