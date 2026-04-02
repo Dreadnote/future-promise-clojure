@@ -1,57 +1,63 @@
 (ns lab1.lab1
   (:gen-class))
 
-(defn sum-list [numbers]
-  (println "  Сумма: начали вычисление...")
-  (let [result (apply + numbers)]
-    (println "  Сумма: готово =" result)
+(defn sum-half1 [numbers]
+  (println "  Левая половина: начали вычисление...")
+  (let [half (take (/ (count numbers) 2) numbers)
+        result (apply + half)]
+    (println "  Левая половина: готово =" result)
     result))
 
-(defn product-list [numbers]
-  (println "  Произведение: начали вычисление...")
-  (let [result (apply * numbers)]
-    (println "  Произведение: готово =" result)
+(defn sum-half2 [numbers]
+  (println "  Правая половина: начали вычисление...")
+  (let [half (drop (/ (count numbers) 2) numbers)
+        result (apply + half)]
+    (println "  Правая половина: готово =" result)
     result))
 
 (defn sequential-compute [numbers]
   (println "Последовательное выполнение (без future):")
   (let [start (System/currentTimeMillis)
-        sum (sum-list numbers)
-        product (product-list numbers)
+        left (sum-half1 numbers)
+        right (sum-half2 numbers)
         end (System/currentTimeMillis)]
     (println "---")
     (println "Результаты:")
-    (println "  Сумма =" sum)
-    (println "  Произведение =" product)
+    (println "  Сумма левой половины =" left)
+    (println "  Сумма правой половины =" right)
+    (println "  Общая сумма =" (+ left right))
     (println "Время выполнения:" (- end start) "мс")
     (- end start)))
 
 (defn parallel-compute [numbers]
   (println "Параллельное выполнение (с future и promise):")
   (let [start (System/currentTimeMillis)
-        sum-promise (promise)
-        product-promise (promise)]
+        left-promise (promise)
+        right-promise (promise)]
     (future
-      (let [result (sum-list numbers)]
-        (deliver sum-promise result)
+      (let [result (sum-half1 numbers)]
+        (deliver left-promise result)
         result))
     (future
-      (let [result (product-list numbers)]
-        (deliver product-promise result)
+      (let [result (sum-half2 numbers)]
+        (deliver right-promise result)
         result))
-    (let [sum @sum-promise
-          product @product-promise
+    (let [left @left-promise
+          right @right-promise
           end (System/currentTimeMillis)]
       (println "---")
       (println "Результаты:")
-      (println "  Сумма =" sum)
-      (println "  Произведение =" product)
+      (println "  Сумма левой половины =" left)
+      (println "  Сумма правой половины =" right)
+      (println "  Общая сумма =" (+ left right))
       (println "Время выполнения:" (- end start) "мс")
       (- end start))))
 
 (defn -main [& args]
-  (let [numbers [1 2 3 4 5]]
-    (println "Список чисел:" numbers)
+  (let [numbers (range 1 2000000)]  ; 2 миллиона чисел
+    (println "Размер списка:" (count numbers) "чисел")
+    (println "Первые 10 чисел:" (take 10 numbers) "...")
+    (println "Последние 10 чисел:" (take-last 10 numbers) "...")
     (println "========================")
 
     (def sequential-time (sequential-compute numbers))
@@ -63,6 +69,9 @@
     (println "СРАВНЕНИЕ:")
     (println "  Последовательное время:" sequential-time "мс")
     (println "  Параллельное время:" parallel-time "мс")
-    (println "  Выигрыш:" (- sequential-time parallel-time) "мс")
+
+    (if (< parallel-time sequential-time)
+      (println "  Параллельное вычисление быстрее на:" (- sequential-time parallel-time) "мс")
+      (println "  Последовательное вычисление быстрее на:" (- parallel-time sequential-time) "мс"))
 
     (shutdown-agents)))
