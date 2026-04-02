@@ -1,0 +1,10 @@
+﻿/.cpcache
+/.clojure
+/.lsp
+/node_modules
+/.hg
+/.svn
+*~
+.DS_Store
+*.class
+*.log
