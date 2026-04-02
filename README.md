@@ -1,73 +1,130 @@
-# lab1
+# Лабораторная работа: Многопоточность в Clojure (future и promise)
 
-FIXME: my new application.
+## Описание программы
 
-## Installation
+Программа демонстрирует использование механизмов параллельного программирования в Clojure: `future` и `promise`.
 
-Download from https://github.com/lab1/lab1
+### Что делает программа
 
-## Usage
+Программа вычисляет сумму квадратов чисел от 1 до 2 000 000 тремя различными способами:
 
-FIXME: explanation
+1. **Последовательно** (один поток)
+2. **Параллельно с использованием 2 потоков** (future + promise)
+3. **Параллельно с использованием 4 потоков** (future + promise)
 
-Run the project directly, via `:exec-fn`:
+После выполнения всех трёх вариантов программа выводит сравнение времени выполнения и процент ускорения.
 
-    $ clojure -X:run-x
-    Hello, Clojure!
+### Пример вывода
+ЛАБОРАТОРНАЯ РАБОТА: future и promise
+========================================
+Размер данных: 2000000 чисел
+Операция: возведение в квадрат каждого числа и суммирование
+Процессоров: 8
+========================================
 
-Run the project, overriding the name to be greeted:
+Последовательное выполнение (без future):
+  Поток начал вычисление...
+  Поток закончил, результат: 333333833333500000
+  Поток начал вычисление...
+  Поток закончил, результат: 2333334833333500000
+---
+Общий результат: 2666668666667000000
+Время выполнения: 361 мс
 
-    $ clojure -X:run-x :name '"Someone"'
-    Hello, Someone!
+Параллельное выполнение (2 потока с future и promise):
+  Поток начал вычисление...
+  Поток начал вычисление...
+  Поток закончил, результат: 2333334833333500000
+  Поток закончил, результат: 333333833333500000
+---
+Общий результат: 2666668666667000000
+Время выполнения: 261 мс
 
-Run the project directly, via `:main-opts` (`-m lab1.lab1`):
+Параллельное выполнение (4 потока с future и promise):
+  Поток начал вычисление...
+  Поток начал вычисление...
+  Поток начал вычисление...  Поток начал вычисление...
 
-    $ clojure -M:run-m
-    Hello, World!
+  Поток закончил, результат: 1541667541666750000
+  Поток закончил, результат: 791667291666750000
+  Поток закончил, результат: 41666791666750000
+---
+Общий результат: 2666668666667000000
+Время выполнения: 161 мс
 
-Run the project, overriding the name to be greeted:
+========================================
+ИТОГОВОЕ СРАВНЕНИЕ:
+  Последовательно (1 поток):    361 мс
+  Параллельно (2 потока):       261 мс
+  Параллельно (4 потока):       161 мс
 
-    $ clojure -M:run-m Via-Main
-    Hello, Via-Main!
+  Выигрыш 2 потоков: 100 мс (27,7%)
+  Выигрыш 4 потоков: 200 мс (55,4%)
+  
+## Как это работает
 
-Run the project's tests (they'll fail until you edit them):
+### Future
 
-    $ clojure -T:build test
+`future` запускает выражение в отдельном потоке и сразу возвращает объект, который можно использовать для получения результата.
 
-Run the project's CI pipeline and build an uberjar (this will fail until you edit the tests to pass):
+```clojure
+(future (complex-compute numbers))
 
-    $ clojure -T:build ci
+(def p (promise))
+(future (deliver p (complex-compute numbers)))
+@p  ; ожидание результата
 
-This will produce an updated `pom.xml` file with synchronized dependencies inside the `META-INF`
-directory inside `target/classes` and the uberjar in `target`. You can update the version (and SCM tag)
-information in generated `pom.xml` by updating `build.clj`.
+Синхронизация
+Оператор @ (deref) блокирует выполнение текущего потока до тех пор, пока promise не будет доставлен (заполнен результатом).
 
-If you don't want the `pom.xml` file in your project, you can remove it. The `ci` task will
-still generate a minimal `pom.xml` as part of the `uber` task, unless you remove `version`
-from `build.clj`.
+Структура кода
+complex-compute     - Вычисляет сумму квадратов чисел в списке. Основная вычислительная функция.
+sequential-compute  - Последовательное выполнение: делит список на две половины и вычисляет их одну за другой.
+parallel-compute-2  - Параллельное выполнение с 2 потоками: использует future и promise для одновременного вычисления обеих половин.
+parallel-compute-4  - Параллельное выполнение с 4 потоками: делит список на 4 части, каждая вычисляется в отдельном потоке.
+-main               - Главная функция: запускает все три варианта, замеряет время и выводит сравнение.
 
-Run that uberjar:
+## Результаты исследования
 
-    $ java -jar target/net.clojars.lab1/lab1-0.1.0-SNAPSHOT.jar
+| Конфигурация               | Время | Ускорение |
+|---------------------------|-------|-----------|
+| 1 поток (последовательно) | 361 мс| 1x        |
+| 2 потока                  | 267 мс| 1.35x     |
+| 4 потока                  | 169 мс| 2.14x     |
 
-## Options
+## Выводы
+1. Использование future и promise позволяет эффективно распараллеливать вычислительные задачи.
 
-FIXME: listing of options this app accepts.
+2. Ускорение не достигает теоретического максимума (4x для 4 потоков) из-за накладных расходов:
+   - Создание и запуск потоков
+   - Синхронизация через promise
+   - Накладные расходы на разделение данных
 
-## Examples
+3. Для вычислительно сложных задач (как в данном примере) параллельный подход даёт значительный выигрыш 
+   в производительности - более чем в 2 раза при использовании 4 потоков.
 
-...
+4. Эффективность параллелизации зависит от:
+   - Сложности вычислений (чем сложнее, тем лучше)
+   - Количества доступных ядер процессора
+   - Объёма данных
 
-### Bugs
+Требования
+Java 17 или новее
 
-...
+Clojure CLI tools
 
-### Any Other Sections
-### That You Think
-### Might be Useful
+Запуск
+bash
+clojure -M -m lab1.lab1
 
-## License
+Структура проекта
+lab1/  
+├── src/  
+│   └── lab1/  
+│       └── lab1.clj    # основной код программы  
+├── deps.edn            # зависимости проекта  
+└── README.md           # этот файл  
 
-Copyright © 2026 Dreadnote1338
+Автор Dreadnote
 
-Distributed under the [Eclipse Public License 1.0](http://www.eclipse.org/legal/epl-v10.html)
+Лицензия MIT
